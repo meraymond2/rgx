@@ -1,4 +1,4 @@
-export type Inst = CharInst | MatchInst | JmpInst | SplitInst | Label
+export type Inst = CharInst | MatchInst | JmpInst | SplitInst
 
 type CharInst = {
   _tag: "CharInst"
@@ -16,32 +16,25 @@ export const MatchInst = (): MatchInst => ({ _tag: "MatchInst" })
 
 type JmpInst = {
   _tag: "JmpInst"
-  to: Label
+  to: number
 }
 
-export const JmpInst = (to: Label): JmpInst => ({
+export const JmpInst = (to: number): JmpInst => ({
   _tag: "JmpInst",
   to,
 })
 
 type SplitInst = {
   _tag: "SplitInst"
-  l1: Label
-  l2: Label
+  to1: number
+  to2: number
 }
 
-export const SplitInst = (l1: Label, l2: Label): SplitInst => ({
+export const SplitInst = (to1: number, to2: number): SplitInst => ({
   _tag: "SplitInst",
-  l1,
-  l2,
+  to1,
+  to2,
 })
-
-type Label = {
-  _tag: "Label"
-  name: string
-}
-
-export const Label = (name: string): Label => ({ _tag: "Label", name })
 
 export type VM = {
   pc: number

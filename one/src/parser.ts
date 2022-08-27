@@ -13,7 +13,7 @@ char -> [a-z]
 // handled at parse-time.
 export type RegexAst = Expr
 
-type Expr = Alternation | Concatenation | Repetition | Char
+export type Expr = Alternation | Concatenation | Repetition | Char
 
 type Alternation = {
   _tag: "Alternation"

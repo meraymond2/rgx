@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "out/index.js",
   "scripts": {
-    "build": "npx esbuild index.ts --outdir=out --platform=node --bundle"
+    "build": "npx esbuild src/index.ts --outdir=out --platform=node --bundle",
+    "start": "npm run build && node out/index.js"
   },
   "devDependencies": {
     "@types/lodash.isequal": "^4.5.5",

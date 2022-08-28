@@ -119,3 +119,57 @@ export const matchNonRecursive = (
 
   return false
 }
+
+// Add a state to the list. We don't want duplicates because we only need to
+// process each state once.
+const addThread = (list: number[], pc: number) => {
+  if (!list.includes(pc)) list.push(pc)
+}
+
+/**
+ * Ken Thompson's algorithm, adapted for the VM implementation. Because we don't
+ * have backtracking, we know we only need to process each character once.
+ * Rather than backtracking, we check all the possibilities for the current
+ * character. Any that pass get progressed and will be checked for the next
+ * char. If they don't pass, they're just discarded. If we introduce a split,
+ * we add both to the current to-process list, and both get checked against the
+ * current char.
+ */
+export const matchThompson = (prog: Inst[], s: string): boolean => {
+  // clist is the current set of states that the NFA is in
+  let clist: number[] = []
+  // nlist is the next set of states that the NFA will be in, after processing the current character
+  let nlist: number[] = []
+  addThread(clist, 0)
+  // Need to iterate one more than the string length. If the last char is a
+  // matched CharInst, we need to go around one more time to hit the MatchInst.
+  for (let sp = 0; sp <= s.length; sp++) {
+    const c = s[sp]
+    // This has to be a for-loop because the length changes during processing.
+    for (let idx = 0; idx < clist.length; idx++) {
+      const pc = clist[idx]
+      const i = prog[pc]
+      switch (i._tag) {
+        case "CharInst":
+          if (i.char === c) {
+            addThread(nlist, pc + 1)
+            break
+          } else {
+            break
+          }
+        case "JmpInst":
+          addThread(clist, i.to)
+          break
+        case "MatchInst":
+          return true
+        case "SplitInst":
+          addThread(clist, i.to1)
+          addThread(clist, i.to2)
+          break
+      }
+    }
+    clist = nlist
+    nlist = []
+  }
+  return false
+}

@@ -10,8 +10,10 @@ type Label = {
 
 export const Label = (id: number): Label => ({ _tag: "Label", id })
 
-export const compile = (ast: RegexAst): Inst[] =>
-  resolveLabels(compileExpr(ast).concat(MatchInst()))
+export const compile = (ast: RegexAst): Inst[] => {
+  labelCounter = 0
+  return resolveLabels(compileExpr(ast).concat(MatchInst()))
+}
 
 const compileExpr = (expr: Expr): Array<Inst | Label> => {
   switch (expr._tag) {

@@ -67,3 +67,55 @@ export const matchRecursive = (prog: Inst[], s: string): boolean => {
   }
   return goto(0, 0)
 }
+
+type Thread = {
+  pc: number
+  sp: number
+}
+
+const Thread = (pc: number, sp: number): Thread => ({ pc, sp })
+
+/**
+ * Non-recursive version, but still backtracking. The advantage of this version
+ * is that it doesn't rely on the application stack, so we can return an error
+ * value rather blowing up.
+ */
+export const matchNonRecursive = (
+  prog: Inst[],
+  s: string
+): boolean | "overflow" => {
+  const threadLimit = 1000
+  let ready: Thread[] = []
+  ready.push(Thread(0, 0))
+  while (ready.length > 0) {
+    let { pc, sp } = ready.pop() as Thread
+    let threadMatches = true
+    while (threadMatches) {
+      const i = prog[pc]
+      const c = s[sp]
+      switch (i._tag) {
+        case "CharInst":
+          if (i.char === c) {
+            pc++
+            sp++
+            break
+          } else {
+            threadMatches = false
+            break
+          }
+        case "JmpInst":
+          pc = i.to
+          break
+        case "MatchInst":
+          return true
+        case "SplitInst":
+          if (ready.length > threadLimit) return "overflow"
+          ready.push(Thread(i.to2, sp))
+          pc = i.to1
+          break
+      }
+    }
+  }
+
+  return false
+}

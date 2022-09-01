@@ -13,7 +13,7 @@ char -> [a-z]
 // handled at parse-time.
 export type RegexAst = Expr
 
-export type Expr = Alternation | Concatenation | Repetition | Char
+export type Expr = Alternation | Concatenation | Repetition | Capture | Char
 
 type Alternation = {
   _tag: "Alternation"
@@ -31,6 +31,11 @@ type Repetition = {
   _tag: "Repetition"
   expr: Expr
   op: "?" | "+" | "*"
+}
+
+type Capture = {
+  _tag: "Capture"
+  expr: Expr
 }
 
 type Char = {
@@ -110,7 +115,7 @@ const parsePrimary = (src: StringIter): Expr => {
   if (src.match("(")) {
     const expr = parseExpr(src)
     src.match(")")
-    return expr
+    return { _tag: "Capture", expr }
   }
   return { _tag: "Char", c: src.next() as string }
 }

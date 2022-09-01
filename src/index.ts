@@ -2,7 +2,7 @@ import { compile } from "./compile"
 import { parse } from "./parser"
 import { matchNonRecursive, matchRecursive, matchThompson } from "./vm"
 
-console.log(parse("(a+)(b+)"))
+console.log(compile(parse("(a+)(b+)")))
 // const r = compile(parse("a+b+"))
 // console.log("Recursive")
 // console.log(matchRecursive(r, "aaabb"))

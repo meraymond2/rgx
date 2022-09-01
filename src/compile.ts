@@ -1,5 +1,5 @@
 import { Expr, RegexAst } from "./parser"
-import { CharInst, Inst, SplitInst, JmpInst, MatchInst } from "./vm"
+import { CharInst, Inst, SplitInst, JmpInst, MatchInst, SaveInst } from "./vm"
 
 let labelCounter = 0
 
@@ -8,11 +8,15 @@ type Label = {
   id: number
 }
 
-export const Label = (id: number): Label => ({ _tag: "Label", id })
+const Label = (id: number): Label => ({ _tag: "Label", id })
+
+let saveCounter = 0
 
 export const compile = (ast: RegexAst): Inst[] => {
   labelCounter = 0
-  return resolveLabels(compileExpr(ast).concat(MatchInst()))
+  const saveStart = SaveInst(saveCounter++)
+  const saveEnd = SaveInst(saveCounter++)
+  return resolveLabels([saveStart, ...compileExpr(ast), MatchInst(), saveEnd])
 }
 
 const compileExpr = (expr: Expr): Array<Inst | Label> => {
@@ -29,6 +33,11 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
         Label(l2),
         ...right,
       ]
+    }
+    case "Capture": {
+      const saveStart = SaveInst(saveCounter++)
+      const saveEnd = SaveInst(saveCounter++)
+      return [saveStart, ...compileExpr(expr.expr), saveEnd]
     }
     case "Char":
       return [CharInst(expr.c)]
@@ -107,6 +116,8 @@ const resolveLabels = (insts: Array<Inst | Label>): Inst[] => {
       case "JmpInst":
         return { ...inst, to: labelPositions[inst.to] }
       case "MatchInst":
+        return inst
+      case "SaveInst":
         return inst
       case "SplitInst":
         return {

@@ -1,4 +1,4 @@
-export type Inst = CharInst | MatchInst | JmpInst | SplitInst
+export type Inst = CharInst | MatchInst | JmpInst | SaveInst | SplitInst
 
 type CharInst = {
   _tag: "CharInst"
@@ -22,6 +22,16 @@ type JmpInst = {
 export const JmpInst = (to: number): JmpInst => ({
   _tag: "JmpInst",
   to,
+})
+
+type SaveInst = {
+  _tag: "SaveInst"
+  position: number
+}
+
+export const SaveInst = (position: number): SaveInst => ({
+  _tag: "SaveInst",
+  position,
 })
 
 type SplitInst = {

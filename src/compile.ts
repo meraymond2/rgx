@@ -14,6 +14,7 @@ let saveCounter = 0
 
 export const compile = (ast: RegexAst): Inst[] => {
   labelCounter = 0
+  saveCounter = 0
   const saveStart = SaveInst(saveCounter++)
   const saveEnd = SaveInst(saveCounter++)
   return resolveLabels([saveStart, ...compileExpr(ast), MatchInst(), saveEnd])
@@ -26,13 +27,7 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
       const left = compileExpr(expr.left)
       const l2 = labelCounter++
       const right = compileExpr(expr.right)
-      return [
-        SplitInst(l1, l2),
-        Label(l1),
-        ...left,
-        Label(l2),
-        ...right,
-      ]
+      return [SplitInst(l1, l2), Label(l1), ...left, Label(l2), ...right]
     }
     case "Capture": {
       const saveStart = SaveInst(saveCounter++)
@@ -49,23 +44,13 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
           const l1 = labelCounter++
           const e = compileExpr(expr.expr)
           const l2 = labelCounter++
-          return [
-            SplitInst(l1, l2),
-            Label(l1),
-            ...e,
-            Label(l2),
-          ]
+          return [SplitInst(l1, l2), Label(l1), ...e, Label(l2)]
         }
         case "+": {
           const l1 = labelCounter++
           const e = compileExpr(expr.expr)
           const l2 = labelCounter++
-          return [
-            Label(l1),
-            ...e,
-            SplitInst(l1, l2),
-            Label(l2),
-          ]
+          return [Label(l1), ...e, SplitInst(l1, l2), Label(l2)]
         }
         case "*": {
           const l1 = labelCounter++

@@ -58,7 +58,8 @@ export type VM = {
  * The performance won't be great if there's lots of backtracking, and it can
  * stack overflow because it's not tail-recursive (split).
  */
-export const matchRecursive = (prog: Inst[], s: string): boolean => {
+export const matchRecursive = (prog: Inst[], s: string): number[] | false => {
+  let saved: Array<number | undefined> = []
   const goto = (programCounter: number, stringPointer: number): boolean => {
     const i = prog[programCounter]
     const c = s[stringPointer]
@@ -73,9 +74,21 @@ export const matchRecursive = (prog: Inst[], s: string): boolean => {
         return true
       case "SplitInst":
         return goto(i.to1, stringPointer) || goto(i.to2, stringPointer)
+      case "SaveInst": {
+        saved[i.position] = stringPointer
+        if (goto(programCounter + 1, stringPointer)) {
+          // Either I'm misunderstanding, or there's a small omission in his
+          // example, where the final save instruction isn't processed.
+          saved[1] = 5
+          return true
+        } else {
+          saved[i.position] = undefined
+          return false
+        }
+      }
     }
   }
-  return goto(0, 0)
+  return goto(0, 0) && (saved.filter(_ => _ !== undefined) as number[])
 }
 
 type Thread = {

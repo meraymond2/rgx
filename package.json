@@ -4,6 +4,7 @@
   "main": "out/index.js",
   "scripts": {
     "build": "npx esbuild src/index.ts --outdir=out --platform=node --bundle",
+    "lint": "npx prettier -w src/*.ts src/**/*.ts",
     "start": "npm run build && node out/index.js"
   },
   "devDependencies": {

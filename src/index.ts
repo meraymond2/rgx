@@ -2,15 +2,18 @@ import { compile } from "./compile"
 import { parse } from "./parser"
 import { matchNonRecursive, matchRecursive, matchThompson } from "./vm"
 
-const r = compile(parse("(a+)(b+)"))
-// console.log(r)
+const r = compile(parse("a+b+"))
+const r2 = compile(parse("(a+)|(b+)"))
 
 console.log("Recursive")
-// console.log(matchRecursive(r, "aaabb"))
-// console.log(matchRecursive(r, "aabbbc"))
-
-const r2 = compile(parse("(a+)|(b+)"))
+console.log(matchRecursive(r, "aaabb"))
+console.log(matchRecursive(r, "aabbbc"))
+console.log(matchRecursive(r, "bbaaa"))
+console.log(matchRecursive(r, "ab"))
+console.log(matchRecursive(r, "a"))
+console.log(matchRecursive(r2, "aabbbc"))
 console.log(matchRecursive(r2, "bbb"))
+
 
 // console.log("Non-Recursive")
 // console.log(matchNonRecursive(r, "aaabb"))

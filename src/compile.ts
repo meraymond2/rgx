@@ -27,7 +27,16 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
       const left = compileExpr(expr.left)
       const l2 = labelCounter++
       const right = compileExpr(expr.right)
-      return [SplitInst(l1, l2), Label(l1), ...left, Label(l2), ...right]
+      const l3 = labelCounter++
+      return [
+        SplitInst(l1, l2),
+        Label(l1),
+        ...left,
+        JmpInst(l3),
+        Label(l2),
+        ...right,
+        Label(l3),
+      ]
     }
     case "Capture": {
       const saveStart = SaveInst(saveCounter++)

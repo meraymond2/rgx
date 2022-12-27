@@ -20,14 +20,12 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
     case "Alternation": {
       const l1 = labelCounter++
       const l2 = labelCounter++
-      const l3 = labelCounter++
       return [
         SplitInst(l1, l2),
         Label(l1),
         ...compileExpr(expr.left),
         Label(l2),
         ...compileExpr(expr.right),
-        Label(l3),
       ]
     }
     case "Char":
@@ -48,12 +46,12 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
         }
         case "+": {
           const l1 = labelCounter++
-          const l3 = labelCounter++
+          const l2 = labelCounter++
           return [
             Label(l1),
             ...compileExpr(expr.expr),
-            SplitInst(l1, l3),
-            Label(l3),
+            SplitInst(l1, l2),
+            Label(l2),
           ]
         }
         case "*": {

@@ -89,7 +89,7 @@ const parseAlternation = (src: StringIter): Expr => {
 
 const parseConcatenation = (src: StringIter): Expr => {
   let left = parseRepetition(src)
-  while (src.hasNext()) {
+  while (src.hasNext() && src.peek() !== ")" && src.peek() !== "|") {
     const right = parseRepetition(src)
     left = { _tag: "Concatenation", left, right }
   }

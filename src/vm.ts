@@ -79,7 +79,7 @@ export const matchRecursive = (prog: Inst[], s: string): number[] | false => {
         if (goto(programCounter + 1, stringPointer)) {
           // Either I'm misunderstanding, or there's a small omission in his
           // example, where the final save instruction isn't processed.
-          saved[1] = 5
+          saved[1] = s.length
           return true
         } else {
           saved[i.position] = undefined
@@ -94,9 +94,14 @@ export const matchRecursive = (prog: Inst[], s: string): number[] | false => {
 type Thread = {
   pc: number
   sp: number
+  matches: number[]
 }
 
-const Thread = (pc: number, sp: number): Thread => ({ pc, sp })
+const Thread = (pc: number, sp: number, matches: number[]): Thread => ({
+  pc,
+  sp,
+  matches,
+})
 
 /**
  * Non-recursive version, but still backtracking. The advantage of this version
@@ -106,12 +111,13 @@ const Thread = (pc: number, sp: number): Thread => ({ pc, sp })
 export const matchNonRecursive = (
   prog: Inst[],
   s: string
-): boolean | "overflow" => {
+): number[] | false | "overflow" => {
   const threadLimit = 1000
   let ready: Thread[] = []
-  ready.push(Thread(0, 0))
+  let saved: number[] = []
+  ready.push(Thread(0, 0, saved))
   while (ready.length > 0) {
-    let { pc, sp } = ready.pop() as Thread
+    let { pc, sp, matches } = ready.pop() as Thread
     let threadMatches = true
     while (threadMatches) {
       const i = prog[pc]
@@ -130,23 +136,34 @@ export const matchNonRecursive = (
           pc = i.to
           break
         case "MatchInst":
-          return true
+          saved = matches
+          saved[1] = s.length
+          // not correct, because it keeps around partial matches
+          return saved.filter(_ => _ !== undefined) as number[]
         case "SplitInst":
           if (ready.length > threadLimit) return "overflow"
-          ready.push(Thread(i.to2, sp))
+          ready.push(Thread(i.to2, sp, matches))
           pc = i.to1
+          break
+        case "SaveInst":
+          matches[i.position] = sp
+          pc++
           break
       }
     }
   }
-
   return false
 }
 
 // Add a state to the list. We don't want duplicates because we only need to
-// process each state once.
-const addThread = (list: number[], pc: number) => {
-  if (!list.includes(pc)) list.push(pc)
+// process each state once. Not efficient.
+const addThread = (list: TThread[], thread: TThread) => {
+  if (!list.find(t => t.pc === thread.pc)) list.push(thread)
+}
+
+type TThread = {
+  pc: number
+  matches: number[]
 }
 
 /**
@@ -158,36 +175,42 @@ const addThread = (list: number[], pc: number) => {
  * we add both to the current to-process list, and both get checked against the
  * current char.
  */
-export const matchThompson = (prog: Inst[], s: string): boolean => {
+export const matchThompson = (prog: Inst[], s: string): number[] | false => {
   // clist is the current set of states that the NFA is in
-  let clist: number[] = []
+  let clist: TThread[] = []
   // nlist is the next set of states that the NFA will be in, after processing the current character
-  let nlist: number[] = []
-  addThread(clist, 0)
+  let nlist: TThread[] = []
+  let saved: number[] = []
+  addThread(clist, { pc: 0, matches: saved })
   // Need to iterate one more than the string length. If the last char is a
   // matched CharInst, we need to go around one more time to hit the MatchInst.
   for (let sp = 0; sp <= s.length; sp++) {
     const c = s[sp]
     // This has to be a for-loop because the length changes during processing.
     for (let idx = 0; idx < clist.length; idx++) {
-      const pc = clist[idx]
-      const i = prog[pc]
+      const t = clist[idx]
+      const i = prog[t.pc]
       switch (i._tag) {
         case "CharInst":
           if (i.char === c) {
-            addThread(nlist, pc + 1)
+            addThread(nlist, { pc: t.pc + 1, matches: t.matches })
             break
           } else {
             break
           }
         case "JmpInst":
-          addThread(clist, i.to)
+          addThread(clist, { pc: i.to, matches: t.matches })
           break
         case "MatchInst":
-          return true
+          saved[1] = s.length
+          return saved
         case "SplitInst":
-          addThread(clist, i.to1)
-          addThread(clist, i.to2)
+          addThread(clist, { pc: i.to1, matches: t.matches })
+          addThread(clist, { pc: i.to2, matches: t.matches })
+          break
+        case "SaveInst":
+          t.matches[i.position] = sp
+          addThread(clist, { pc: t.pc + 1, matches: t.matches })
           break
       }
     }

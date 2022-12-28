@@ -14,7 +14,6 @@ console.log(matchRecursive(r, "a"))
 console.log(matchRecursive(r2, "aabbbc"))
 console.log(matchRecursive(r2, "bbb"))
 
-
 console.log("Non-Recursive")
 console.log(matchNonRecursive(r, "aaabb"))
 console.log(matchNonRecursive(r, "aabbbc"))

@@ -60,6 +60,7 @@ export type VM = {
  */
 export const matchRecursive = (prog: Inst[], s: string): number[] | false => {
   let saved: Array<number | undefined> = []
+  let matchEnd = -1
   const goto = (programCounter: number, stringPointer: number): boolean => {
     const i = prog[programCounter]
     const c = s[stringPointer]
@@ -71,6 +72,7 @@ export const matchRecursive = (prog: Inst[], s: string): number[] | false => {
       case "JmpInst":
         return goto(i.to, stringPointer)
       case "MatchInst":
+        matchEnd = stringPointer
         return true
       case "SplitInst":
         return goto(i.to1, stringPointer) || goto(i.to2, stringPointer)
@@ -79,7 +81,7 @@ export const matchRecursive = (prog: Inst[], s: string): number[] | false => {
         if (goto(programCounter + 1, stringPointer)) {
           // Either I'm misunderstanding, or there's a small omission in his
           // example, where the final save instruction isn't processed.
-          saved[1] = s.length
+          saved[1] = matchEnd
           return true
         } else {
           saved[i.position] = undefined
@@ -114,8 +116,7 @@ export const matchNonRecursive = (
 ): number[] | false | "overflow" => {
   const threadLimit = 1000
   let ready: Thread[] = []
-  let saved: number[] = []
-  ready.push(Thread(0, 0, saved))
+  ready.push(Thread(0, 0, [].slice()))
   while (ready.length > 0) {
     let { pc, sp, matches } = ready.pop() as Thread
     let threadMatches = true
@@ -136,13 +137,11 @@ export const matchNonRecursive = (
           pc = i.to
           break
         case "MatchInst":
-          saved = matches
-          saved[1] = s.length
-          // not correct, because it keeps around partial matches
-          return saved.filter(_ => _ !== undefined) as number[]
+          matches[1] = sp
+          return matches.filter(_ => _ !== undefined)
         case "SplitInst":
           if (ready.length > threadLimit) return "overflow"
-          ready.push(Thread(i.to2, sp, matches))
+          ready.push(Thread(i.to2, sp, matches.slice()))
           pc = i.to1
           break
         case "SaveInst":
@@ -174,14 +173,20 @@ type TThread = {
  * char. If they don't pass, they're just discarded. If we introduce a split,
  * we add both to the current to-process list, and both get checked against the
  * current char.
+ *
+ * This works, but does not have the expected behaviour for matches, because
+ * it's not greedy. If the regex ends on a repetition, it will split, and one
+ * thread will be added to check for more chars, but the other will hit the
+ * match instruction and finish. The backtracking implementations don't have
+ * this problem, because they run each branch to completion before trying the
+ * next one, and the greedy branch happens to be first in the split.
  */
 export const matchThompson = (prog: Inst[], s: string): number[] | false => {
   // clist is the current set of states that the NFA is in
   let clist: TThread[] = []
   // nlist is the next set of states that the NFA will be in, after processing the current character
   let nlist: TThread[] = []
-  let saved: number[] = []
-  addThread(clist, { pc: 0, matches: saved })
+  addThread(clist, { pc: 0, matches: [].slice() })
   // Need to iterate one more than the string length. If the last char is a
   // matched CharInst, we need to go around one more time to hit the MatchInst.
   for (let sp = 0; sp <= s.length; sp++) {
@@ -193,24 +198,24 @@ export const matchThompson = (prog: Inst[], s: string): number[] | false => {
       switch (i._tag) {
         case "CharInst":
           if (i.char === c) {
-            addThread(nlist, { pc: t.pc + 1, matches: t.matches })
+            addThread(nlist, { pc: t.pc + 1, matches: t.matches.slice() })
             break
           } else {
             break
           }
         case "JmpInst":
-          addThread(clist, { pc: i.to, matches: t.matches })
+          addThread(clist, { pc: i.to, matches: t.matches.slice() })
           break
         case "MatchInst":
-          saved[1] = s.length
-          return saved
+          t.matches[1] = sp
+          return t.matches.filter(_ => _ !== undefined)
         case "SplitInst":
-          addThread(clist, { pc: i.to1, matches: t.matches })
-          addThread(clist, { pc: i.to2, matches: t.matches })
+          addThread(clist, { pc: i.to1, matches: t.matches.slice() })
+          addThread(clist, { pc: i.to2, matches: t.matches.slice() })
           break
         case "SaveInst":
           t.matches[i.position] = sp
-          addThread(clist, { pc: t.pc + 1, matches: t.matches })
+          addThread(clist, { pc: t.pc + 1, matches: t.matches.slice() })
           break
       }
     }

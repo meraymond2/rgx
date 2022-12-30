@@ -55,11 +55,23 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
           const l2 = labelCounter++
           return [SplitInst(l1, l2), Label(l1), ...e, Label(l2)]
         }
+        case "??": {
+          const l1 = labelCounter++
+          const e = compileExpr(expr.expr)
+          const l2 = labelCounter++
+          return [SplitInst(l2, l1), Label(l1), ...e, Label(l2)]
+        }
         case "+": {
           const l1 = labelCounter++
           const e = compileExpr(expr.expr)
           const l2 = labelCounter++
           return [Label(l1), ...e, SplitInst(l1, l2), Label(l2)]
+        }
+        case "+?": {
+          const l1 = labelCounter++
+          const e = compileExpr(expr.expr)
+          const l2 = labelCounter++
+          return [Label(l1), ...e, SplitInst(l2, l1), Label(l2)]
         }
         case "*": {
           const l1 = labelCounter++
@@ -69,6 +81,20 @@ const compileExpr = (expr: Expr): Array<Inst | Label> => {
           return [
             Label(l1),
             SplitInst(l2, l3),
+            Label(l2),
+            ...e,
+            JmpInst(l1),
+            Label(l3),
+          ]
+        }
+        case "*?": {
+          const l1 = labelCounter++
+          const l2 = labelCounter++
+          const e = compileExpr(expr.expr)
+          const l3 = labelCounter++
+          return [
+            Label(l1),
+            SplitInst(l3, l2),
             Label(l2),
             ...e,
             JmpInst(l1),

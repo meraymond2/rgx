@@ -2,7 +2,7 @@
 expr -> alternation
 alternation -> concat ("|" concat)*
 concatenation -> repetition repetition*
-repetition -> primary ("?" | "+" | "*")?
+repetition -> primary ("?" | "+" | "*" | "??" | "+?" | "*?")?
 primary -> block | char
 block -> "(" expr ")"
 char -> [a-z]
@@ -27,10 +27,12 @@ type Concatenation = {
   right: Expr
 }
 
+type RepetitionOp = "?" | "+" | "*" | "??" | "+?" | "*?"
+
 type Repetition = {
   _tag: "Repetition"
   expr: Expr
-  op: "?" | "+" | "*"
+  op: RepetitionOp
 }
 
 type Capture = {
@@ -105,8 +107,12 @@ const parseRepetition = (src: StringIter): Expr => {
   const expr = parsePrimary(src)
   const next = src.peek()
   if (next && ["?", "+", "*"].includes(next)) {
-    const op = src.next() as "?" | "+" | "*"
-    return { _tag: "Repetition", expr, op }
+    const op = src.next() as RepetitionOp
+    return {
+      _tag: "Repetition",
+      expr,
+      op: src.match("?") ? ((op + "?") as RepetitionOp) : op,
+    }
   }
   return expr
 }

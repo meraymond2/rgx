@@ -161,7 +161,7 @@ type TThread = {
 
 // Add a state to the list. We don't want duplicates because we only need to
 // process each state once.
-const addThread = (
+const addThreadOld = (
   list: TThread[],
   thread: TThread,
   seen: Record<number, true>
@@ -169,6 +169,36 @@ const addThread = (
   if (!seen[thread.pc]) {
     seen[thread.pc] = true
     list.push(thread)
+  }
+}
+
+const addThread = (
+  list: TThread[],
+  pc: number,
+  sp: number,
+  prog: Inst[],
+  matches: number[],
+  seen: Record<number, true>
+): void => {
+  const inst = prog[pc]
+  switch (inst._tag) {
+    case "JmpInst":
+      addThread(list, inst.to, sp, prog, matches, seen)
+      break
+    case "SaveInst":
+      const matchesCopy = matches.slice()
+      matchesCopy[inst.position] = sp
+      addThread(list, pc + 1, sp, prog, matchesCopy, seen)
+      break
+    case "SplitInst":
+      addThread(list, inst.to1, sp, prog, matches, seen)
+      addThread(list, inst.to2, sp, prog, matches, seen)
+      break
+    default:
+      if (!seen[pc]) {
+        seen[pc] = true
+        list.push({ pc, matches })
+      }
   }
 }
 
@@ -194,7 +224,7 @@ export const matchThompson = (prog: Inst[], s: string): number[] | false => {
   let clist: TThread[] = []
   // nlist is the next set of states that the NFA will be in, after processing the current character
   let nlist: TThread[] = []
-  addThread(clist, { pc: 0, matches: [] }, {})
+  addThread(clist, 0, 0, prog, [], {})
   // Need to iterate one more than the string length. If the last char is a
   // matched CharInst, we need to go around one more time to hit the MatchInst.
   let saved: number[] = []
@@ -208,14 +238,11 @@ export const matchThompson = (prog: Inst[], s: string): number[] | false => {
       switch (i._tag) {
         case "CharInst":
           if (i.char === c) {
-            addThread(nlist, { pc: t.pc + 1, matches: t.matches }, seen)
+            addThread(nlist, t.pc + 1, sp + 1, prog, t.matches, seen)
             break
           } else {
             break
           }
-        case "JmpInst":
-          addThread(clist, { pc: i.to, matches: t.matches }, seen)
-          break
         case "MatchInst":
           t.matches = t.matches.slice()
           t.matches[1] = sp
@@ -226,15 +253,10 @@ export const matchThompson = (prog: Inst[], s: string): number[] | false => {
           // on having matched, and not continue with the greedier branch.
           clist = []
           break
-        case "SplitInst":
-          addThread(clist, { pc: i.to1, matches: t.matches }, seen)
-          addThread(clist, { pc: i.to2, matches: t.matches }, seen)
-          break
+        case "JmpInst":
         case "SaveInst":
-          t.matches = t.matches.slice()
-          t.matches[i.position] = sp
-          addThread(clist, { pc: t.pc + 1, matches: t.matches }, seen)
-          break
+        case "SplitInst":
+          throw Error(`Unreachable: ${i._tag}`)
       }
     }
     clist = nlist

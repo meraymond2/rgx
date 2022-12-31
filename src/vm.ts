@@ -159,19 +159,6 @@ type TThread = {
   matches: number[]
 }
 
-// Add a state to the list. We don't want duplicates because we only need to
-// process each state once.
-const addThreadOld = (
-  list: TThread[],
-  thread: TThread,
-  seen: Record<number, true>
-) => {
-  if (!seen[thread.pc]) {
-    seen[thread.pc] = true
-    list.push(thread)
-  }
-}
-
 const addThread = (
   list: TThread[],
   pc: number,
@@ -207,22 +194,16 @@ const addThread = (
  * have backtracking, we know we only need to process each character once.
  * Rather than backtracking, we check all the possibilities for the current
  * character. Any that pass get progressed and will be checked for the next
- * char. If they don't pass, they're just discarded. If we introduce a split,
- * we add both to the current to-process list, and both get checked against the
- * current char.
- *
- * There’s a comment about this VM, which turned into the Pike VM when we added
- * submatching, not respecting thread priority. I don't have a test for it. It's
- * something to do with the instructions that add more instructions to the clist
- * only adding them one at a time, so other instructions can run first and put
- * other instructions in front of them that shouldn't be first. I get that, but
- * I'm not sure how to test it.
+ * char. If they don't pass, they're just discarded. When we add the next
+ * instruction to the to-process list, we recursively resolve any ‘control’
+ * instructions. That way the thread-priority is preserved, which might not
+ * happen if we interleaved them with the threads in the main loop.
  */
 export const matchThompson = (prog: Inst[], s: string): number[] | false => {
   let matched = false
-  // clist is the current set of states that the NFA is in
+  // clist is the current set of states that the NFA is in.
   let clist: TThread[] = []
-  // nlist is the next set of states that the NFA will be in, after processing the current character
+  // nlist is the next set of states that the NFA will be in, after processing the current character.
   let nlist: TThread[] = []
   addThread(clist, 0, 0, prog, [], {})
   // Need to iterate one more than the string length. If the last char is a
@@ -237,12 +218,9 @@ export const matchThompson = (prog: Inst[], s: string): number[] | false => {
       const i = prog[t.pc]
       switch (i._tag) {
         case "CharInst":
-          if (i.char === c) {
+          if (i.char === c)
             addThread(nlist, t.pc + 1, sp + 1, prog, t.matches, seen)
-            break
-          } else {
-            break
-          }
+          break
         case "MatchInst":
           t.matches = t.matches.slice()
           t.matches[1] = sp

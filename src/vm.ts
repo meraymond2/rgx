@@ -154,15 +154,22 @@ export const matchNonRecursive = (
   return false
 }
 
-// Add a state to the list. We don't want duplicates because we only need to
-// process each state once. Not efficient.
-const addThread = (list: TThread[], thread: TThread) => {
-  if (!list.find(t => t.pc === thread.pc)) list.push(thread)
-}
-
 type TThread = {
   pc: number
   matches: number[]
+}
+
+// Add a state to the list. We don't want duplicates because we only need to
+// process each state once.
+const addThread = (
+  list: TThread[],
+  thread: TThread,
+  seen: Record<number, true>
+) => {
+  if (!seen[thread.pc]) {
+    seen[thread.pc] = true
+    list.push(thread)
+  }
 }
 
 /**
@@ -174,22 +181,25 @@ type TThread = {
  * we add both to the current to-process list, and both get checked against the
  * current char.
  *
- * This works, but does not have the expected behaviour for matches, because
- * it's not greedy. If the regex ends on a repetition, it will split, and one
- * thread will be added to check for more chars, but the other will hit the
- * match instruction and finish. The backtracking implementations don't have
- * this problem, because they run each branch to completion before trying the
- * next one, and the greedy branch happens to be first in the split.
+ * There’s a comment about this VM, which turned into the Pike VM when we added
+ * submatching, not respecting thread priority. I don't have a test for it. It's
+ * something to do with the instructions that add more instructions to the clist
+ * only adding them one at a time, so other instructions can run first and put
+ * other instructions in front of them that shouldn't be first. I get that, but
+ * I'm not sure how to test it.
  */
 export const matchThompson = (prog: Inst[], s: string): number[] | false => {
+  let matched = false
   // clist is the current set of states that the NFA is in
   let clist: TThread[] = []
   // nlist is the next set of states that the NFA will be in, after processing the current character
   let nlist: TThread[] = []
-  addThread(clist, { pc: 0, matches: [].slice() })
+  addThread(clist, { pc: 0, matches: [] }, {})
   // Need to iterate one more than the string length. If the last char is a
   // matched CharInst, we need to go around one more time to hit the MatchInst.
+  let saved: number[] = []
   for (let sp = 0; sp <= s.length; sp++) {
+    let seen: Record<number, true> = {}
     const c = s[sp]
     // This has to be a for-loop because the length changes during processing.
     for (let idx = 0; idx < clist.length; idx++) {
@@ -198,29 +208,37 @@ export const matchThompson = (prog: Inst[], s: string): number[] | false => {
       switch (i._tag) {
         case "CharInst":
           if (i.char === c) {
-            addThread(nlist, { pc: t.pc + 1, matches: t.matches.slice() })
+            addThread(nlist, { pc: t.pc + 1, matches: t.matches }, seen)
             break
           } else {
             break
           }
         case "JmpInst":
-          addThread(clist, { pc: i.to, matches: t.matches.slice() })
+          addThread(clist, { pc: i.to, matches: t.matches }, seen)
           break
         case "MatchInst":
+          t.matches = t.matches.slice()
           t.matches[1] = sp
-          return t.matches.filter(_ => _ !== undefined)
+          matched = true
+          saved = t.matches.filter(_ => _ !== undefined)
+          // If a thread matches, we want to skip the rest of the lower-priority
+          // threads. For lazy quantifiers, this would mean that we would stop
+          // on having matched, and not continue with the greedier branch.
+          clist = []
+          break
         case "SplitInst":
-          addThread(clist, { pc: i.to1, matches: t.matches.slice() })
-          addThread(clist, { pc: i.to2, matches: t.matches.slice() })
+          addThread(clist, { pc: i.to1, matches: t.matches }, seen)
+          addThread(clist, { pc: i.to2, matches: t.matches }, seen)
           break
         case "SaveInst":
+          t.matches = t.matches.slice()
           t.matches[i.position] = sp
-          addThread(clist, { pc: t.pc + 1, matches: t.matches.slice() })
+          addThread(clist, { pc: t.pc + 1, matches: t.matches }, seen)
           break
       }
     }
     clist = nlist
     nlist = []
   }
-  return false
+  return matched ? saved : false
 }
